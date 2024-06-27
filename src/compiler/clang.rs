@@ -178,6 +178,7 @@ counted_array!(pub static ARGS: [ArgInfo<gcc::ArgData>; _] = [
     take_arg!("-MT", OsString, CanBeSeparated, DepTarget),
     // gross hack to make geode compile with pch on mac :3
     take_arg!("-Xarch_x86_64", OsString, Separated, PreprocessorArgument),
+    take_arg!("-Xarch_arm64", OsString, Separated, PreprocessorArgument),
     take_arg!("-Xclang", OsString, Separated, XClang),
     take_arg!("-add-plugin", OsString, Separated, PassThrough),
     take_arg!("-debug-info-kind", OsString, Concatenated('='), PassThrough),
