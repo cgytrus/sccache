@@ -176,9 +176,8 @@ counted_array!(pub static ARGS: [ArgInfo<gcc::ArgData>; _] = [
     take_arg!("-MF", PathBuf, CanBeSeparated, DepArgumentPath),
     take_arg!("-MQ", OsString, CanBeSeparated, DepTarget),
     take_arg!("-MT", OsString, CanBeSeparated, DepTarget),
-    // gross hack to make geode compile with pch on mac :3
-    take_arg!("-Xarch_x86_64", OsString, Separated, PreprocessorArgument),
     take_arg!("-Xclang", OsString, Separated, XClang),
+    take_arg!("-Xarch", OsString, Concatenated('_'), PreprocessorArgument),
     take_arg!("-add-plugin", OsString, Separated, PassThrough),
     take_arg!("-debug-info-kind", OsString, Concatenated('='), PassThrough),
     take_arg!("-dependency-file", PathBuf, Separated, DepArgumentPath),
@@ -202,8 +201,6 @@ counted_array!(pub static ARGS: [ArgInfo<gcc::ArgData>; _] = [
     flag!("-fuse-ctor-homing", PassThroughFlag),
     take_arg!("-gcc-toolchain", OsString, Separated, PassThrough),
     flag!("-gcodeview", PassThroughFlag),
-    // gross hack to make geode compile with pch on mac :3 2
-    take_arg!("-Xarch_arm64", OsString, Separated, PreprocessorArgument),
     take_arg!("-include-pch", PathBuf, CanBeSeparated, PreprocessorArgumentPath),
     take_arg!("-load", PathBuf, Separated, ExtraHashFile),
     take_arg!("-mllvm", OsString, Separated, PassThrough),

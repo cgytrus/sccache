@@ -430,11 +430,20 @@ impl<T: ArgumentValue> ArgInfo<T> {
                         len += 1;
                     }
                 }
-                Argument::WithValue(
-                    s,
-                    create(arg[len..].into())?,
-                    ArgDisposition::Concatenated(d),
-                )
+                if s == "-Xarch" {
+                    Argument::WithValue(
+                        arg,
+                        create(get_next_arg().into())?,
+                        ArgDisposition::Separated,
+                    )
+                }
+                else {
+                    Argument::WithValue(
+                        s,
+                        create(arg[len..].into())?,
+                        ArgDisposition::Concatenated(d),
+                    )
+                }
             }
             ArgInfo::TakeArg(s, create, ArgDisposition::CanBeSeparated(d))
             | ArgInfo::TakeArg(s, create, ArgDisposition::CanBeConcatenated(d)) => {
