@@ -175,13 +175,13 @@ counted_array!(pub static ARGS: [ArgInfo<gcc::ArgData>; _] = [
     // Note: for clang we must override the dep options from gcc.rs with `CanBeSeparated`.
     take_arg!("-MF", PathBuf, CanBeSeparated, DepArgumentPath),
     take_arg!("-MQ", OsString, CanBeSeparated, DepTarget),
-    // gross hack to make geode compile with pch on mac :3 2
-    take_arg!("-Xarch_arm64", OsString, Separated, PreprocessorArgument),
     take_arg!("-MT", OsString, CanBeSeparated, DepTarget),
     // gross hack to make geode compile with pch on mac :3
     take_arg!("-Xarch_x86_64", OsString, Separated, PreprocessorArgument),
     take_arg!("-Xclang", OsString, Separated, XClang),
     take_arg!("-add-plugin", OsString, Separated, PassThrough),
+    // gross hack to make geode compile with pch on mac :3 2
+    take_arg!("-Xarch_arm64", OsString, Separated, PreprocessorArgument),
     take_arg!("-debug-info-kind", OsString, Concatenated('='), PassThrough),
     take_arg!("-dependency-file", PathBuf, Separated, DepArgumentPath),
     flag!("-emit-pch", PassThroughFlag),
