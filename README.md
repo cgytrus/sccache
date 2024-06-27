@@ -176,7 +176,7 @@ And you can build code as usual without any additional flags in the command line
 Build Requirements
 ------------------
 
-sccache is a [Rust](https://www.rust-lang.org/) program. Building it requires `cargo` (and thus`rustc`). sccache currently requires **Rust 1.70.0**. We recommend you install Rust via [Rustup](https://rustup.rs/).
+sccache is a [Rust](https://www.rust-lang.org/) program. Building it requires `cargo` (and thus`rustc`). sccache currently requires **Rust 1.75.0**. We recommend you install Rust via [Rustup](https://rustup.rs/).
 
 Build
 -----
@@ -184,12 +184,12 @@ Build
 If you are building sccache for non-development purposes make sure you use `cargo build --release` to get optimized binaries:
 
 ```bash
-cargo build --release [--no-default-features --features=s3|redis|gcs|memcached|azure]
+cargo build --release [--no-default-features --features=s3|redis|gcs|memcached|azure|gha|webdav|oss]
 ```
 
-By default, `sccache` builds with support for all storage backends, but individual backends may be disabled by resetting the list of features and enabling all the other backends. Refer the [Cargo Documentation](http://doc.crates.io/manifest.html#the-features-section) for details on how to select features with Cargo.
+The list of features can be found in the `Cargo.toml` file, `[features]` section.
 
-Feature `vendored-openssl` can be used to statically link with openssl if feature openssl is enabled.
+By default, `sccache` builds with support for all storage backends, but individual backends may be disabled by resetting the list of features and enabling all the other backends. Refer the [Cargo Documentation](http://doc.crates.io/manifest.html#the-features-section) for details on how to select features with Cargo.
 
 ### Building portable binaries
 

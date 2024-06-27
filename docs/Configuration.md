@@ -3,6 +3,9 @@
 ## file
 
 ```toml
+# If specified, wait this long for the server to start up.
+server_startup_timeout_ms = 10000
+
 [dist]
 # where to find the scheduler
 scheduler_url = "http://1.2.3.4:10600"
@@ -57,10 +60,31 @@ cache_to = "sccache-latest"
 cache_from = "sccache-"
 
 [cache.memcached]
-url = "..."
+# Deprecated alias for `endpoint`
+# url = "127.0.0.1:11211"
+endpoint = "tcp://127.0.0.1:11211"
+# Username and password for authentication
+username = "user"
+password = "passwd"
+# Entry expiration time in seconds. Default is 86400 (24 hours)
+expiration = 3600
+key_prefix = "/custom/prefix/if/need"
 
 [cache.redis]
+# Deprecated, use `endpoint` instead
 url = "redis://user:passwd@1.2.3.4:6379/?db=1"
+## Refer to the `opendal` documentation for more information about Redis endpoint
+# Single-node endpoint. Mutually exclusive with `cluster_endpoints`
+endpoint = "redis://127.0.0.1:6379"
+# Multiple-node list of endpoints (cluster mode). Mutually exclusive with `endpoint`
+cluster_endpoints = "redis://10.0.0.1:6379,redis://10.0.0.2:6379"
+username = "user"
+password = "passwd"
+# Database number to use. Default is 0
+db = 1
+# Entry expiration time in seconds. Default is 0 (never expire)
+expiration = 3600
+key_prefix = "/custom/prefix/if/need"
 
 [cache.s3]
 bucket = "name"
@@ -68,6 +92,21 @@ endpoint = "s3-us-east-1.amazonaws.com"
 use_ssl = true
 key_prefix = "s3prefix"
 server_side_encryption = false
+
+[cache.webdav]
+endpoint = "http://192.168.10.42:80/some/webdav.php"
+key_prefix = "/custom/webdav/subfolder/if/need"
+# Basic HTTP authentication credentials.
+username = "alice"
+password = "secret12"
+# Mutually exclusive with username & password. Bearer token value
+token = "token123"
+
+[cache.oss]
+bucket = "name"
+endpoint = "oss-us-east-1.aliyuncs.com"
+key_prefix = "ossprefix"
+no_credentials = true
 ```
 
 sccache looks for its configuration file at the path indicated by env variable `SCCACHE_CONF`.
@@ -76,6 +115,8 @@ If no such env variable is set, sccache looks at default locations as below:
 - Linux: `~/.config/sccache/config`
 - macOS: `~/Library/Application Support/Mozilla.sccache/config`
 - Windows: `%APPDATA%\Mozilla\sccache\config\config`
+
+The latest `cache.XXX` entries may be found here: https://github.com/mozilla/sccache/blob/ffe3070f77ef3301c8ff718316e4ab017ec83042/src/config.rs#L300.
 
 ## env
 
@@ -108,6 +149,7 @@ configuration variables
 * `SCCACHE_ENDPOINT` s3 endpoint
 * `SCCACHE_REGION` s3 region, required if using AWS S3
 * `SCCACHE_S3_USE_SSL` s3 endpoint requires TLS, set this to `true`
+* `SCCACHE_S3_KEY_PREFIX` s3 key prefix (optional)
 
 The endpoint used then becomes `${SCCACHE_BUCKET}.s3-{SCCACHE_REGION}.amazonaws.com`.
 If you are not using the default endpoint and `SCCACHE_REGION` is undefined, it
@@ -118,17 +160,29 @@ will default to `us-east-1`.
 * `SCCACHE_BUCKET` is the name of your R2 bucket.
 * `SCCACHE_ENDPOINT` must follow the format of `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`. Note that the `https://` must be included. Your account ID can be found [here](https://developers.cloudflare.com/fundamentals/get-started/basic-tasks/find-account-and-zone-ids/).
 * `SCCACHE_REGION` should be set to `auto`.
+* `SCCACHE_S3_KEY_PREFIX` s3 key prefix (optional).
 
 #### redis
 
-* `SCCACHE_REDIS` full redis url, including auth and access token/passwd
-* `SCCACHE_REDIS_TTL` ttl for redis cache, don't set for default behavior.
+* `SCCACHE_REDIS` full redis url, including auth and access token/passwd (deprecated).
+* `SCCACHE_REDIS_ENDPOINT` redis url without auth and access token/passwd - single node configuration.
+* `SCCACHE_REDIS_CLUSTER_ENDPOINTS` redis cluster urls, separated by comma - shared cluster configuration.
+* `SCCACHE_REDIS_USERNAME` redis username (optional).
+* `SCCACHE_REDIS_PASSWORD` redis password (optional).
+* `SCCACHE_REDIS_DB` redis database (optional, default is 0).
+* `SCCACHE_REDIS_EXPIRATION` / `SCCACHE_REDIS_TTL` ttl for redis cache, don't set for default behavior.
+* `SCCACHE_REDIS_KEY_PREFIX` key prefix (optional).
 
 The full url appears then as `redis://user:passwd@1.2.3.4:6379/?db=1`.
 
 #### memcached
 
-* `SCCACHE_MEMCACHED` memcached url
+* `SCCACHE_MEMCACHED` is a deprecated alias for `SCCACHE_MEMCACHED_ENDPOINT`.
+* `SCCACHE_MEMCACHED_ENDPOINT` memcached url.
+* `SCCACHE_MEMCACHED_USERNAME` memcached username (optional).
+* `SCCACHE_MEMCACHED_PASSWORD` memcached password (optional).
+* `SCCACHE_MEMCACHED_EXPIRATION` ttl for memcached cache, don't set for default behavior.
+* `SCCACHE_MEMCACHED_KEY_PREFIX` key prefix (optional).
 
 #### gcs
 
@@ -147,3 +201,20 @@ The full url appears then as `redis://user:passwd@1.2.3.4:6379/?db=1`.
 * `SCCACHE_GHA_RUNTIME_TOKEN` / `ACTIONS_RUNTIME_TOKEN` GitHub Actions access token
 * `SCCACHE_GHA_CACHE_TO` cache key to write
 * `SCCACHE_GHA_CACHE_FROM` comma separated list of cache keys to read from
+
+#### webdav
+
+* `SCCACHE_WEBDAV_ENDPOINT` a webdav service endpoint to store cache, such as `http://127.0.0.1:8080/my/webdav.php`.
+* `SCCACHE_WEBDAV_KEY_PREFIX` specify the key prefix (subfolder) of cache (optional).
+* `SCCACHE_WEBDAV_USERNAME` a username to authenticate with webdav service (optional).
+* `SCCACHE_WEBDAV_PASSWORD` a password to authenticate with webdav service (optional).
+* `SCCACHE_WEBDAV_TOKEN` a token to authenticate with webdav service (optional) - may be used instead of login & password.
+
+#### OSS
+
+* `SCCACHE_OSS_BUCKET`
+* `SCCACHE_OSS_ENDPOINT`
+* `SCCACHE_OSS_KEY_PREFIX`
+* `ALIBABA_CLOUD_ACCESS_KEY_ID`
+* `ALIBABA_CLOUD_ACCESS_KEY_SECRET`
+* `SCCACHE_OSS_NO_CREDENTIALS`

@@ -203,7 +203,7 @@ impl TimeMacroFinder {
                     // importance compared to just getting many small reads.
                     self.previous_small_read.extend(visit);
                 } else {
-                    self.previous_small_read = visit.to_owned();
+                    visit.clone_into(&mut self.previous_small_read);
                 }
                 self.find_macros(&self.previous_small_read);
                 return;
@@ -831,11 +831,6 @@ impl<'a> Hasher for HashToDigest<'a> {
     fn finish(&self) -> u64 {
         panic!("not supposed to be called");
     }
-}
-
-/// Turns a slice of environment var tuples into the type expected by Command::envs.
-pub fn ref_env(env: &[(OsString, OsString)]) -> impl Iterator<Item = (&OsString, &OsString)> {
-    env.iter().map(|(k, v)| (k, v))
 }
 
 /// Pipe `cmd`'s stdio to `/dev/null`, unless a specific env var is set.

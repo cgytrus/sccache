@@ -154,7 +154,7 @@ use self::ArgData::*;
 
 const ARCH_FLAG: &str = "-arch";
 
-// Mostly taken from https://github.com/ccache/ccache/blob/master/src/compopt.c#L32-L84
+// Mostly taken from https://github.com/ccache/ccache/blob/master/src/compopt.cpp#L52-L172
 counted_array!(pub static ARGS: [ArgInfo<ArgData>; _] = [
     flag!("-", TooHardFlag),
     flag!("--coverage", Coverage),
@@ -289,7 +289,7 @@ where
     // and interpreting it as a list of more arguments.
     let it = ExpandIncludeFile::new(cwd, arguments);
 
-    let mut too_hard_for_preprocessor_cache_mode = false;
+    let mut too_hard_for_preprocessor_cache_mode = None;
 
     let mut args_iter = ArgsIter::new(it, arg_info);
     if kind == CCompilerKind::Clang {
@@ -350,6 +350,7 @@ where
             }
             Some(Output(p)) => output_arg = Some(p.clone()),
             Some(NeedDepTarget) => {
+                too_hard_for_preprocessor_cache_mode = Some(arg.to_os_string());
                 need_explicit_dep_target = true;
                 if let DepArgumentRequirePath::NotNeeded = need_explicit_dep_argument_path {
                     need_explicit_dep_argument_path = DepArgumentRequirePath::Missing;
@@ -381,6 +382,7 @@ where
                     "cu" => Some(Language::Cuda),
                     "rs" => Some(Language::Rust),
                     "cuda" => Some(Language::Cuda),
+                    "hip" => Some(Language::Hip),
                     _ => cannot_cache!("-x"),
                 };
             }
@@ -435,8 +437,8 @@ where
             }
             Some(PreprocessorArgument(_)) => {
                 too_hard_for_preprocessor_cache_mode = match arg.flag_str() {
-                    Some(s) => s == "-Xpreprocessor" || s == "-Wp",
-                    _ => false,
+                    Some(s) if s == "-Xpreprocessor" || s == "-Wp" => Some(arg.to_os_string()),
+                    _ => None,
                 };
                 &mut preprocessor_args
             }
@@ -643,7 +645,8 @@ fn language_to_gcc_arg(lang: Language) -> Option<&'static str> {
         Language::ObjectiveC => Some("objective-c"),
         Language::ObjectiveCxx => Some("objective-c++"),
         Language::Cuda => Some("cu"),
-        Language::Rust => None,          // Let the compiler decide
+        Language::Rust => None, // Let the compiler decide
+        Language::Hip => Some("hip"),
         Language::GenericHeader => None, // Let the compiler decide
     }
 }
@@ -723,7 +726,7 @@ fn preprocess_cmd<T>(
     }
     cmd.arg(&parsed_args.input)
         .env_clear()
-        .envs(env_vars.iter().map(|(k, v)| (k, v)))
+        .envs(env_vars.to_vec())
         .current_dir(cwd);
     debug!("cmd after -arch rewrite: {:?}", cmd);
 }
@@ -2028,12 +2031,12 @@ mod test {
             profile_generate: false,
             color_mode: ColorMode::Auto,
             suppress_rewrite_includes_only: false,
-            too_hard_for_preprocessor_cache_mode: false,
+            too_hard_for_preprocessor_cache_mode: None,
         };
         let compiler = &f.bins[0];
         // Compiler invocation.
         next_command(&creator, Ok(MockChild::new(exit_status(0), "", "")));
-        let mut path_transformer = dist::PathTransformer::default();
+        let mut path_transformer = dist::PathTransformer::new();
         let (command, dist_command, cacheable) = generate_compile_commands(
             &mut path_transformer,
             compiler,
@@ -2063,7 +2066,7 @@ mod test {
         };
         let f = TestFixture::new();
         let compiler = &f.bins[0];
-        let mut path_transformer = dist::PathTransformer::default();
+        let mut path_transformer = dist::PathTransformer::new();
         let (command, _, _) = generate_compile_commands(
             &mut path_transformer,
             compiler,
@@ -2191,20 +2194,26 @@ mod test {
             CompilerArguments::Ok(args) => args,
             o => panic!("Got unexpected parse result: {:?}", o),
         };
-        assert!(!parsed_args.too_hard_for_preprocessor_cache_mode);
+        assert!(parsed_args.too_hard_for_preprocessor_cache_mode.is_none());
 
         let args = stringvec!["-c", "foo.c", "-o", "foo.o", "-Xpreprocessor", "-M"];
         let parsed_args = match parse_arguments_(args, false) {
             CompilerArguments::Ok(args) => args,
             o => panic!("Got unexpected parse result: {:?}", o),
         };
-        assert!(parsed_args.too_hard_for_preprocessor_cache_mode);
+        assert_eq!(
+            parsed_args.too_hard_for_preprocessor_cache_mode,
+            Some("-Xpreprocessor".into())
+        );
 
         let args = stringvec!["-c", "foo.c", "-o", "foo.o", r#"-Wp,-DFOO="something""#];
         let parsed_args = match parse_arguments_(args, false) {
             CompilerArguments::Ok(args) => args,
             o => panic!("Got unexpected parse result: {:?}", o),
         };
-        assert!(parsed_args.too_hard_for_preprocessor_cache_mode);
+        assert_eq!(
+            parsed_args.too_hard_for_preprocessor_cache_mode,
+            Some("-Wp".into())
+        );
     }
 }

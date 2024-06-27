@@ -27,7 +27,7 @@ jobs:
           name: integration-tests
           path: ./target/debug/sccache
 
-  redis:
+  redis-deprecated:
     runs-on: ubuntu-latest
     needs: build
 
@@ -39,6 +39,54 @@ jobs:
 
     env:
       SCCACHE_REDIS: redis://127.0.0.1
+      RUSTC_WRAPPER: /home/runner/.cargo/bin/sccache
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Install rust
+        uses: ./.github/actions/rust-toolchain
+        with:
+          toolchain: "stable"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: integration-tests
+          path: /home/runner/.cargo/bin/
+      - name: Chmod for binary
+        run: chmod +x ${SCCACHE_PATH}
+
+      - name: Test
+        run: cargo clean && cargo build
+
+      - name: Output
+        run: |
+          ${SCCACHE_PATH} --show-stats
+
+          ${SCCACHE_PATH} --show-stats | grep redis
+
+      - name: Test Twice for Cache Read
+        run: cargo clean && cargo build
+
+      - name: Output
+        run: |
+          ${SCCACHE_PATH} --show-stats
+
+          ${SCCACHE_PATH} --show-stats | grep -e "Cache hits\s*[1-9]"
+
+  redis:
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+
+    env:
+      SCCACHE_REDIS_ENDPOINT: tcp://127.0.0.1
       RUSTC_WRAPPER: /home/runner/.cargo/bin/sccache
 
     steps:
@@ -240,7 +288,7 @@ jobs:
 
           ${SCCACHE_PATH} --show-stats | grep -e "Cache hits\s*[1-9]"
 
-  memcached:
+  memcached-deprecated:
     runs-on: ubuntu-latest
     needs: build
 
@@ -259,6 +307,61 @@ jobs:
 
     env:
       SCCACHE_MEMCACHED: "tcp://127.0.0.1:11211"
+      RUSTC_WRAPPER: /home/runner/.cargo/bin/sccache
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Install rust
+        uses: ./.github/actions/rust-toolchain
+        with:
+          toolchain: "stable"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: integration-tests
+          path: /home/runner/.cargo/bin/
+      - name: Chmod for binary
+        run: chmod +x ${SCCACHE_PATH}
+
+      - name: Test
+        run: cargo clean && cargo build
+
+      - name: Output
+        run: |
+          ${SCCACHE_PATH} --show-stats
+
+          ${SCCACHE_PATH} --show-stats | grep memcached
+
+      - name: Test Twice for Cache Read
+        run: cargo clean && cargo build
+
+      - name: Output
+        run: |
+          ${SCCACHE_PATH} --show-stats
+
+          ${SCCACHE_PATH} --show-stats | grep -e "Cache hits\s*[1-9]"
+
+  memcached:
+    runs-on: ubuntu-latest
+    needs: build
+
+    # Setup memcached server
+    services:
+      memcached:
+        image: bitnami/memcached
+        env:
+          # memcache's max item size is 1MiB, But our tests
+          # will produce larger file.
+          #
+          # Specify the setting here to make our test happy.
+          MEMCACHED_MAX_ITEM_SIZE: 16777216
+        ports:
+          - 11211:11211
+
+    env:
+      SCCACHE_MEMCACHED_ENDPOINT: "tcp://127.0.0.1:11211"
       RUSTC_WRAPPER: /home/runner/.cargo/bin/sccache
 
     steps:
@@ -471,6 +574,78 @@ jobs:
           ${SCCACHE_PATH} --show-stats
 
           ${SCCACHE_PATH} --show-stats | grep -e "Cache hits\s*[1-9]"
+
+  hip:
+    # Probably wouldn't matter anyway since we run in a container, but staying 
+    # close to the version is better than not.
+    runs-on: ubuntu-22.04
+    needs: build
+    container:
+      image: rocm/dev-ubuntu-22.04:6.0
+
+    env:
+      # SCCACHE_GHA_ENABLED: "on"
+      ROCM_PATH: "/opt/rocm"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # I don't want to break the cache during testing. Will turn on after I
+      # make sure it's working.
+      #
+      # - name: Configure Cache Env
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+      #       core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '')
+
+      # - name: Configure ROCm Env
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       core.exportVariable('ROCM_PATH', process.env.ROCM_PATH || '');
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: integration-tests
+          path: /home/runner/.cargo/bin/
+      - name: Chmod for binary
+        run: chmod +x ${SCCACHE_PATH}
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          ## Install dependencies
+          sudo apt-get update
+          sudo apt-get install -y cmake
+
+      # Ensure that HIPCC isn't already borken
+      - name: Sanity Check
+        run: |
+          hipcc -o vectoradd_hip --offload-arch=gfx900 tests/cmake-hip/vectoradd_hip.cpp
+
+      - name: Test
+        run: |
+          cmake -B build -S tests/cmake-hip -DCMAKE_HIP_COMPILER_LAUNCHER=${SCCACHE_PATH} -DCMAKE_HIP_ARCHITECTURES=gfx900
+          cmake --build build
+
+      - name: Output
+        run: |
+          ${SCCACHE_PATH} --show-stats
+
+      - name: Test Twice for Cache Read
+        run: |
+          rm -rf build
+          cmake -B build -S tests/cmake-hip -DCMAKE_HIP_COMPILER_LAUNCHER=${SCCACHE_PATH} -DCMAKE_HIP_ARCHITECTURES=gfx900
+          cmake --build build
+
+      - name: Output
+        run: |
+          ${SCCACHE_PATH} --show-stats
+
+          ${SCCACHE_PATH} --show-stats | grep -e "Cache hits\s*[1-9]"
+
 
   gcc:
     runs-on: ubuntu-latest

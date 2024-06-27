@@ -25,14 +25,15 @@ use url::Url;
 pub struct RedisCache;
 
 impl RedisCache {
-    /// Create a new `RedisCache`.
-    pub fn build(url: &str, ttl: u64) -> Result<Operator> {
+    /// Create a new `RedisCache` for the given URL.
+    pub fn build_from_url(url: &str, key_prefix: &str, ttl: u64) -> Result<Operator> {
         let parsed = Url::parse(url)?;
 
         let mut builder = Redis::default();
         builder.endpoint(parsed.as_str());
         builder.username(parsed.username());
         builder.password(parsed.password().unwrap_or_default());
+        builder.root(key_prefix);
         if ttl != 0 {
             builder.default_ttl(Duration::from_secs(ttl));
         }
@@ -45,6 +46,58 @@ impl RedisCache {
             .get("db")
             .map(|v| v.parse().unwrap_or_default())
             .unwrap_or_default());
+
+        let op = Operator::new(builder)?
+            .layer(LoggingLayer::default())
+            .finish();
+        Ok(op)
+    }
+
+    /// Create a new `RedisCache` for the given single instance.
+    pub fn build_single(
+        endpoint: &str,
+        username: Option<&str>,
+        password: Option<&str>,
+        db: u32,
+        key_prefix: &str,
+        ttl: u64,
+    ) -> Result<Operator> {
+        let mut builder = Redis::default();
+        builder.endpoint(endpoint);
+
+        Self::build_common(builder, username, password, db, key_prefix, ttl)
+    }
+
+    /// Create a new `RedisCache` for the given cluster.
+    pub fn build_cluster(
+        endpoints: &str,
+        username: Option<&str>,
+        password: Option<&str>,
+        db: u32,
+        key_prefix: &str,
+        ttl: u64,
+    ) -> Result<Operator> {
+        let mut builder = Redis::default();
+        builder.cluster_endpoints(endpoints);
+
+        Self::build_common(builder, username, password, db, key_prefix, ttl)
+    }
+
+    fn build_common(
+        mut builder: Redis,
+        username: Option<&str>,
+        password: Option<&str>,
+        db: u32,
+        key_prefix: &str,
+        ttl: u64,
+    ) -> Result<Operator> {
+        builder.username(username.unwrap_or_default());
+        builder.password(password.unwrap_or_default());
+        builder.root(key_prefix);
+        if ttl != 0 {
+            builder.default_ttl(Duration::from_secs(ttl));
+        }
+        builder.db(db.into());
 
         let op = Operator::new(builder)?
             .layer(LoggingLayer::default())

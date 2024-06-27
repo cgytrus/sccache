@@ -362,6 +362,7 @@ msvc_args!(static ARGS: [ArgInfo<ArgData>; _] = [
     msvc_flag!("Qfast_transcendentals", PassThrough),
     msvc_flag!("Qimprecise_fwaits", PassThrough),
     msvc_flag!("Qpar", PassThrough),
+    msvc_flag!("Qpar-", PassThrough),
     msvc_flag!("Qsafe_fp_loads", PassThrough),
     msvc_flag!("Qspectre", PassThrough),
     msvc_flag!("Qspectre-load", PassThrough),
@@ -822,7 +823,7 @@ pub fn parse_arguments(
         // FIXME: implement color_mode for msvc.
         color_mode: ColorMode::Auto,
         suppress_rewrite_includes_only: false,
-        too_hard_for_preprocessor_cache_mode: false,
+        too_hard_for_preprocessor_cache_mode: None,
     })
 }
 
@@ -890,7 +891,7 @@ pub fn preprocess_cmd<T>(
         .args(&parsed_args.dependency_args)
         .args(&parsed_args.common_args)
         .env_clear()
-        .envs(env_vars.iter().map(|(k, v)| (k, v)))
+        .envs(env_vars.to_vec())
         .current_dir(cwd);
 
     if is_clang {
@@ -1986,6 +1987,8 @@ mod test {
     fn test_parse_arguments_passthrough() {
         let args = ovec![
             "-Oy",
+            "-Qpar",
+            "-Qpar-",
             "-Gw",
             "-EHa",
             "-Fmdictionary-map",
@@ -2009,7 +2012,7 @@ mod test {
         assert!(!common_args.is_empty());
         assert_eq!(
             common_args,
-            ovec!("-Oy", "-Gw", "-EHa", "-Fmdictionary-map")
+            ovec!("-Oy", "-Qpar", "-Qpar-", "-Gw", "-EHa", "-Fmdictionary-map")
         );
     }
 
@@ -2442,12 +2445,12 @@ mod test {
             profile_generate: false,
             color_mode: ColorMode::Auto,
             suppress_rewrite_includes_only: false,
-            too_hard_for_preprocessor_cache_mode: false,
+            too_hard_for_preprocessor_cache_mode: None,
         };
         let compiler = &f.bins[0];
         // Compiler invocation.
         next_command(&creator, Ok(MockChild::new(exit_status(0), "", "")));
-        let mut path_transformer = dist::PathTransformer::default();
+        let mut path_transformer = dist::PathTransformer::new();
         let (command, dist_command, cacheable) = generate_compile_commands(
             &mut path_transformer,
             compiler,
@@ -2475,7 +2478,7 @@ mod test {
         };
         let f = TestFixture::new();
         let compiler = &f.bins[0];
-        let mut path_transformer = dist::PathTransformer::default();
+        let mut path_transformer = dist::PathTransformer::new();
         let (command, _, _) = generate_compile_commands(
             &mut path_transformer,
             compiler,
@@ -2527,12 +2530,12 @@ mod test {
             profile_generate: false,
             color_mode: ColorMode::Auto,
             suppress_rewrite_includes_only: false,
-            too_hard_for_preprocessor_cache_mode: false,
+            too_hard_for_preprocessor_cache_mode: None,
         };
         let compiler = &f.bins[0];
         // Compiler invocation.
         next_command(&creator, Ok(MockChild::new(exit_status(0), "", "")));
-        let mut path_transformer = dist::PathTransformer::default();
+        let mut path_transformer = dist::PathTransformer::new();
         let (command, dist_command, cacheable) = generate_compile_commands(
             &mut path_transformer,
             compiler,
