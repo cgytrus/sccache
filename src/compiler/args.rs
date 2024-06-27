@@ -433,7 +433,11 @@ impl<T: ArgumentValue> ArgInfo<T> {
                 if s == "-Xarch" {
                     Argument::WithValue(
                         s,
-                        create(OsString::from(format!("{} {}", &(arg[len..]), get_next_arg().unwrap().to_str().unwrap())))?,
+                        create(OsString::from(format!(
+                            "{} {}",
+                            &(arg[len..]),
+                            get_next_arg().unwrap().to_str().unwrap()
+                        )))?,
                         ArgDisposition::Concatenated(d),
                     )
                 } else {
