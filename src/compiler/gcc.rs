@@ -463,7 +463,21 @@ where
             Some(s) if s.len() == 2 => NormalizedDisposition::Concatenated,
             _ => NormalizedDisposition::Separated,
         };
-        args.extend(arg.normalize(norm).iter_os_strings());
+
+        match arg {
+            Argument::WithValue(s, PreprocessorArgument(d), ArgDisposition::Concatenated(_))
+                if s.starts_with("-Xarch") =>
+            {
+                // let's get nested
+                if let Ok(str_data) = d.into_string() {
+                    if let Some((arch, next_arg)) = str_data.split_once(' ') {
+                        args.push(OsString::from(format!("{}_{}", s, arch)));
+                        args.push(OsString::from(next_arg));
+                    }
+                }
+            }
+            _ => args.extend(arg.normalize(norm).iter_os_strings()),
+        }
     }
 
     let xclang_it = ExpandIncludeFile::new(cwd, &xclangs);

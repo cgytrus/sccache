@@ -735,6 +735,30 @@ mod test {
     }
 
     #[test]
+    fn test_parse_xarch() {
+        let a = parses!(
+            "-c",
+            "foo.c",
+            "-o",
+            "foo.o",
+            "-Xarch_arm64",
+            "-include/Path/pch_arm64.hxx",
+            "-Xarch_x86_64",
+            "-include/Path/pch_x86_64.hxx"
+        );
+
+        assert_eq!(
+            ovec![
+                "-Xarch_arm64",
+                "-include/Path/pch_arm64.hxx",
+                "-Xarch_x86_64",
+                "-include/Path/pch_x86_64.hxx"
+            ],
+            a.preprocessor_args
+        );
+    }
+
+    #[test]
     fn test_parse_xclang_llvm_stuff() {
         let a = parses!(
             "-c",
