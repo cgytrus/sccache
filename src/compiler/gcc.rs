@@ -465,16 +465,18 @@ where
         };
 
         match arg {
-            Argument::WithValue(s, PreprocessorArgument(d), ArgDisposition::Concatenated(_)) if s.starts_with("-Xarch") => {
+            Argument::WithValue(s, PreprocessorArgument(d), ArgDisposition::Concatenated(_))
+                if s.starts_with("-Xarch") =>
+            {
                 // let's get nested
                 if let Ok(str_data) = d.into_string() {
-                    if let Some((arch, next_arg)) = str_data.split_once(" ") {
+                    if let Some((arch, next_arg)) = str_data.split_once(' ') {
                         args.push(OsString::from(format!("{}_{}", s, arch)));
                         args.push(OsString::from(next_arg));
                     }
                 }
             }
-            _ => args.extend(arg.normalize(norm).iter_os_strings())
+            _ => args.extend(arg.normalize(norm).iter_os_strings()),
         }
     }
 

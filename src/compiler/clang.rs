@@ -748,7 +748,12 @@ mod test {
         );
 
         assert_eq!(
-            ovec!["-Xarch_arm64", "-include/Path/pch_arm64.hxx", "-Xarch_x86_64", "-include/Path/pch_x86_64.hxx"],
+            ovec![
+                "-Xarch_arm64",
+                "-include/Path/pch_arm64.hxx",
+                "-Xarch_x86_64",
+                "-include/Path/pch_x86_64.hxx"
+            ],
             a.preprocessor_args
         );
     }
